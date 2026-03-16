@@ -105,20 +105,26 @@
         return;
       }
 
-      try {
-        // Step 1: Request the secure token from n8n
+try {
         updateUI('Getting secure token...', true);
         const response = await fetch(N8N_WEBHOOK_URL);
         
-        if (!response.ok) throw new Error('Failed to fetch token from n8n');
+        if (!response.ok) {
+           console.error("n8n responded with status:", response.status);
+           throw new Error('Failed to fetch token from n8n');
+        }
+        
         const data = await response.json();
         const token = data.token;
 
-        // Step 2: Initialise the LiveKit Room
+        // --- NEW TROUBLESHOOTING LOGS ---
+        console.log("✅ Token successfully received from n8n!");
+        console.log("Raw Token String:", token);
+        // --------------------------------
+
         updateUI('Connecting to AI...', true);
         currentRoom = new Room();
 
-        // Step 3: Listen for the AI's audio track and play it
         currentRoom.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
           if (track.kind === 'audio') {
             const audioElement = track.attach();
@@ -126,15 +132,14 @@
           }
         });
 
-        // Step 4: Connect to the room and turn on the user's microphone
         await currentRoom.connect(LIVEKIT_URL, token);
         await currentRoom.localParticipant.setMicrophoneEnabled(true);
 
         updateUI('Connected! Start speaking.', false, true);
 
       } catch (error) {
-        console.error('Connection error:', error);
-        updateUI('Connection failed. Please try again.', false);
+        console.error('❌ Connection error detailed:', error);
+        updateUI('Connection failed. Check console.', false);
       }
     });
 
