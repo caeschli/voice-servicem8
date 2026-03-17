@@ -42,6 +42,7 @@
       display: block;
       min-height: 20px;
     }
+    /* Talk Button Styles */
     button {
       background-color: #2563eb;
       color: white;
@@ -53,6 +54,7 @@
       cursor: pointer;
       transition: background-color 0.2s, transform 0.1s;
       width: 100%;
+      box-sizing: border-box;
     }
     button:hover {
       background-color: #1d4ed8;
@@ -70,97 +72,26 @@
     .active-call:hover {
       background-color: #dc2626;
     }
-  </style>
-</head>
-<body>
-
-  <div class="card">
-    <h1>ServiceM8 Assistant</h1>
-    <p>Click the button below to connect to your intelligent voice dispatcher.</p>
     
-    <span id="statusText" class="status-text">Ready to connect</span>
-    <button id="talkButton">Talk to Assistant</button>
-  </div>
-
-  <script type="module">
-    import { Room, RoomEvent } from 'https://esm.sh/livekit-client@2.5.9';
-
-    // === YOUR CONFIGURATION VARIABLES ===
-    // 1. Your n8n webhook URL that generates the token
-    const N8N_WEBHOOK_URL = 'https://n8n.srv1275355.hstgr.cloud/webhook/generate-voice-token?user=beta-tester';
-    
-    // 2. Your LiveKit WebSocket URL (found in your LiveKit Cloud dashboard)
-    const LIVEKIT_URL = 'wss://test1-ntnp1zzo.livekit.cloud';
-    // ====================================
-
-    const talkButton = document.getElementById('talkButton');
-    const statusText = document.getElementById('statusText');
-    let currentRoom = null;
-
-    talkButton.addEventListener('click', async () => {
-      // If we are already in a call, disconnect
-      if (currentRoom && currentRoom.state === 'connected') {
-        await currentRoom.disconnect();
-        resetUI();
-        return;
-      }
-
-try {
-        updateUI('Getting secure token...', true);
-        const response = await fetch(N8N_WEBHOOK_URL);
-        
-        if (!response.ok) {
-           console.error("n8n responded with status:", response.status);
-           throw new Error('Failed to fetch token from n8n');
-        }
-        
-        const data = await response.json();
-        const token = data.token;
-
-        // --- NEW TROUBLESHOOTING LOGS ---
-        console.log("✅ Token successfully received from n8n!");
-        console.log("Raw Token String:", token);
-        // --------------------------------
-
-        updateUI('Connecting to AI...', true);
-        currentRoom = new Room();
-
-        currentRoom.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
-          if (track.kind === 'audio') {
-            const audioElement = track.attach();
-            document.body.appendChild(audioElement);
-          }
-        });
-
-        await currentRoom.connect(LIVEKIT_URL, token);
-        await currentRoom.localParticipant.setMicrophoneEnabled(true);
-
-        updateUI('Connected! Start speaking.', false, true);
-
-      } catch (error) {
-        console.error('❌ Connection error detailed:', error);
-        updateUI('Connection failed. Check console.', false);
-      }
-    });
-
-    // Helper functions for updating the user interface
-    function updateUI(statusMessage, isConnecting, isConnected = false) {
-      statusText.innerText = statusMessage;
-      talkButton.disabled = isConnecting;
-      
-      if (isConnected) {
-        talkButton.innerText = 'End Call';
-        talkButton.classList.add('active-call');
-      }
+    /* ServiceM8 OAuth Button Styles */
+    .divider {
+      border: none;
+      border-top: 1px solid #e5e7eb;
+      margin: 32px 0 24px 0;
     }
-
-    function resetUI() {
-      currentRoom = null;
-      statusText.innerText = 'Call ended. Ready to connect.';
-      talkButton.innerText = 'Talk to Assistant';
-      talkButton.classList.remove('active-call');
-      talkButton.disabled = false;
+    .sub-text {
+      font-size: 14px;
+      color: #6b7280;
+      margin-bottom: 16px;
     }
-  </script>
-</body>
-</html>
+    .connect-sm8-btn {
+      display: block;
+      background-color: #10b981; /* Emerald Green */
+      color: white;
+      text-decoration: none;
+      padding: 14px 28px;
+      font-size: 16px;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.2s, transform 0.1s;
