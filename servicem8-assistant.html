@@ -285,17 +285,21 @@
 
     let currentRoom = null;
 
+    // Track in-progress transcription bubbles per participant
+    // key: participantIdentity, value: { bubble, finalTimer }
+    const activeBubbles = {};
+
     // ── UI helpers ──────────────────────────────────────────
     function setStatus(text, state = '') {
       statusText.textContent = text;
       statusDot.className = 'status-dot' + (state ? ' ' + state : '');
     }
 
-    function addMessage(role, text, isThinking = false) {
+    function addMessage(role, text) {
       transcriptEmpty.style.display = 'none';
 
       const msg = document.createElement('div');
-      msg.className = 'message ' + role + (isThinking ? ' thinking' : '');
+      msg.className = 'message ' + role;
 
       const label = document.createElement('div');
       label.className = 'message-label';
@@ -310,7 +314,7 @@
       transcriptBox.appendChild(msg);
       transcriptBox.scrollTop = transcriptBox.scrollHeight;
 
-      return { msg, bubble }; // return so we can update thinking bubble
+      return bubble; // so caller can update text in place
     }
 
     // ── Connect / disconnect ────────────────────────────────
@@ -341,16 +345,34 @@
           }
         });
 
-        // Transcriptions — show what agent says as text
+        // Transcriptions — LiveKit streams word-by-word, so we update one bubble
+        // per speaker turn rather than creating a new bubble for every chunk.
         currentRoom.on(RoomEvent.TranscriptionReceived, (segments, participant) => {
-          const text = segments.map(s => s.text).join(' ').trim();
+          const text = segments.map(s => s.text).join('').trim();
           if (!text) return;
 
-          const isAgent = participant?.identity?.startsWith('agent');
-          if (isAgent) {
-            addMessage('agent', text);
+          const identity = participant?.identity ?? 'unknown';
+          const isAgent  = identity.startsWith('agent');
+          const role     = isAgent ? 'agent' : 'user';
+
+          // Check if any segment is final — if so, this turn is complete
+          const isFinal = segments.some(s => s.final);
+
+          if (!activeBubbles[identity]) {
+            // Start a new bubble for this speaker turn
+            const bubble = addMessage(role, text);
+            activeBubbles[identity] = { bubble, text };
           } else {
-            addMessage('user', text);
+            // Update existing bubble in place (streaming words into it)
+            activeBubbles[identity].bubble.textContent = text;
+            activeBubbles[identity].text = text;
+            transcriptBox.scrollTop = transcriptBox.scrollHeight;
+          }
+
+          // When the turn is final, clear the active bubble so next utterance
+          // starts a fresh bubble
+          if (isFinal) {
+            delete activeBubbles[identity];
           }
         });
 
@@ -373,19 +395,35 @@
     });
 
     // ── Send text message ───────────────────────────────────
+    // Simulates microphone input by injecting text as a chat message via
+    // the DTMF / chat message API that LiveKit agents natively support.
     async function sendText() {
       const text = textInput.value.trim();
       if (!text || !currentRoom) return;
 
       textInput.value = '';
+      sendBtn.disabled = true;
       addMessage('user', text);
 
-      // Send as data message to agent
-      const encoder = new TextEncoder();
-      await currentRoom.localParticipant.publishData(
-        encoder.encode(JSON.stringify({ type: 'text_input', text })),
-        { reliable: true }
-      );
+      try {
+        // LiveKit Agents reads incoming chat messages as user input natively
+        await currentRoom.localParticipant.sendChatMessage(text);
+      } catch (err) {
+        console.error('Failed to send message:', err);
+        // Fallback: publish as raw data
+        try {
+          const encoder = new TextEncoder();
+          await currentRoom.localParticipant.publishData(
+            encoder.encode(JSON.stringify({ type: 'chat_input', text })),
+            { reliable: true }
+          );
+        } catch (err2) {
+          console.error('Fallback data publish failed:', err2);
+        }
+      }
+
+      sendBtn.disabled = false;
+      textInput.focus();
     }
 
     sendBtn.addEventListener('click', sendText);
