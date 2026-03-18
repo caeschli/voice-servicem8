@@ -6,7 +6,7 @@
   <title>ServiceM8 AI Assistant</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-
+ 
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       background-color: #f3f4f6;
@@ -16,7 +16,7 @@
       min-height: 100vh;
       padding: 24px 16px;
     }
-
+ 
     .card {
       background: white;
       padding: 32px;
@@ -25,20 +25,20 @@
       width: 100%;
       max-width: 480px;
     }
-
+ 
     h1 {
       color: #111827;
       font-size: 22px;
       margin-bottom: 6px;
     }
-
+ 
     .subtitle {
       color: #6b7280;
       font-size: 14px;
       line-height: 1.5;
       margin-bottom: 24px;
     }
-
+ 
     /* Status pill */
     .status-row {
       display: flex;
@@ -46,7 +46,7 @@
       gap: 8px;
       margin-bottom: 16px;
     }
-
+ 
     .status-dot {
       width: 8px;
       height: 8px;
@@ -55,22 +55,22 @@
       flex-shrink: 0;
       transition: background 0.3s;
     }
-
+ 
     .status-dot.connected { background: #10b981; }
     .status-dot.connecting { background: #f59e0b; animation: pulse 1s infinite; }
     .status-dot.error { background: #ef4444; }
-
+ 
     @keyframes pulse {
       0%, 100% { opacity: 1; }
       50% { opacity: 0.3; }
     }
-
+ 
     .status-text {
       font-size: 13px;
       font-weight: 500;
       color: #374151;
     }
-
+ 
     /* Transcript */
     .transcript-box {
       background: #f9fafb;
@@ -85,26 +85,26 @@
       gap: 10px;
       scroll-behavior: smooth;
     }
-
+ 
     .transcript-box.hidden { display: none; }
-
+ 
     .transcript-empty {
       color: #9ca3af;
       font-size: 13px;
       text-align: center;
       margin: auto;
     }
-
+ 
     .message {
       display: flex;
       flex-direction: column;
       max-width: 85%;
       gap: 3px;
     }
-
+ 
     .message.user { align-self: flex-end; align-items: flex-end; }
     .message.agent { align-self: flex-start; align-items: flex-start; }
-
+ 
     .message-label {
       font-size: 11px;
       font-weight: 600;
@@ -112,41 +112,41 @@
       letter-spacing: 0.05em;
       color: #9ca3af;
     }
-
+ 
     .message-bubble {
       padding: 9px 13px;
       border-radius: 14px;
       font-size: 14px;
       line-height: 1.5;
     }
-
+ 
     .message.user .message-bubble {
       background: #2563eb;
       color: white;
       border-bottom-right-radius: 4px;
     }
-
+ 
     .message.agent .message-bubble {
       background: #f3f4f6;
       color: #111827;
       border-bottom-left-radius: 4px;
       border: 1px solid #e5e7eb;
     }
-
+ 
     .message.agent.thinking .message-bubble {
       color: #9ca3af;
       font-style: italic;
     }
-
+ 
     /* Text input row */
     .input-row {
       display: flex;
       gap: 8px;
       margin-bottom: 16px;
     }
-
+ 
     .input-row.hidden { display: none; }
-
+ 
     .text-input {
       flex: 1;
       border: 1px solid #e5e7eb;
@@ -157,10 +157,10 @@
       outline: none;
       transition: border-color 0.2s;
     }
-
+ 
     .text-input:focus { border-color: #2563eb; }
     .text-input::placeholder { color: #9ca3af; }
-
+ 
     .send-btn {
       background: #2563eb;
       color: white;
@@ -174,10 +174,10 @@
       white-space: nowrap;
       width: auto;
     }
-
+ 
     .send-btn:hover { background: #1d4ed8; }
     .send-btn:disabled { background: #9ca3af; cursor: not-allowed; }
-
+ 
     /* Action buttons */
     .btn {
       width: 100%;
@@ -189,27 +189,27 @@
       cursor: pointer;
       transition: background-color 0.2s, transform 0.1s;
     }
-
+ 
     .btn:active { transform: scale(0.98); }
     .btn:disabled { background-color: #9ca3af; cursor: not-allowed; }
-
+ 
     .btn-talk { background: #2563eb; color: white; margin-bottom: 10px; }
     .btn-talk:hover:not(:disabled) { background: #1d4ed8; }
     .btn-talk.active { background: #ef4444; }
     .btn-talk.active:hover { background: #dc2626; }
-
+ 
     .divider {
       border: none;
       border-top: 1px solid #e5e7eb;
       margin: 24px 0 20px;
     }
-
+ 
     .sub-text {
       font-size: 13px;
       color: #6b7280;
       margin-bottom: 12px;
     }
-
+ 
     .connect-sm8-btn {
       display: block;
       background: #10b981;
@@ -222,7 +222,7 @@
       text-align: center;
       transition: background 0.2s, transform 0.1s;
     }
-
+ 
     .connect-sm8-btn:hover { background: #059669; }
     .connect-sm8-btn:active { transform: scale(0.98); }
   </style>
@@ -231,18 +231,18 @@
   <div class="card">
     <h1>ServiceM8 Assistant</h1>
     <p class="subtitle">Connect to your intelligent voice dispatcher. You can speak or type.</p>
-
+ 
     <!-- Status -->
     <div class="status-row">
       <div class="status-dot" id="statusDot"></div>
       <span class="status-text" id="statusText">Ready to connect</span>
     </div>
-
+ 
     <!-- Transcript -->
     <div class="transcript-box hidden" id="transcriptBox">
       <div class="transcript-empty" id="transcriptEmpty">Conversation will appear here…</div>
     </div>
-
+ 
     <!-- Text input (shown when connected) -->
     <div class="input-row hidden" id="inputRow">
       <input
@@ -254,10 +254,10 @@
       />
       <button class="send-btn" id="sendBtn">Send</button>
     </div>
-
+ 
     <!-- Talk button -->
     <button class="btn btn-talk" id="talkButton">🎙 Talk to Assistant</button>
-
+ 
     <hr class="divider">
     <div class="sub-text">First time here? Link your account to the AI:</div>
     <a href="https://go.servicem8.com/oauth/authorize?response_type=code&client_id=175357&&scope=read_customers%20read_jobs&redirect_uri=https://n8n.srv1275355.hstgr.cloud/webhook/servicem8-oauth-callback&state=tenant_001"
@@ -265,15 +265,15 @@
       Connect ServiceM8
     </a>
   </div>
-
+ 
   <script type="module">
-    import { Room, RoomEvent } from 'https://esm.sh/livekit-client@2.5.9';
-
+    import { Room, RoomEvent } from 'https://esm.sh/livekit-client@2.9.4';
+ 
     // === CONFIGURATION ===
     const N8N_WEBHOOK_URL = 'https://n8n.srv1275355.hstgr.cloud/webhook/generate-voice-token?user=beta-tester';
     const LIVEKIT_URL = 'wss://test1-ntnp1zzo.livekit.cloud';
     // =====================
-
+ 
     const talkButton   = document.getElementById('talkButton');
     const statusDot    = document.getElementById('statusDot');
     const statusText   = document.getElementById('statusText');
@@ -282,41 +282,41 @@
     const inputRow     = document.getElementById('inputRow');
     const textInput    = document.getElementById('textInput');
     const sendBtn      = document.getElementById('sendBtn');
-
+ 
     let currentRoom = null;
-
+ 
     // Track in-progress transcription bubbles per participant
     // key: participantIdentity, value: { bubble, finalTimer }
     const activeBubbles = {};
-
+ 
     // ── UI helpers ──────────────────────────────────────────
     function setStatus(text, state = '') {
       statusText.textContent = text;
       statusDot.className = 'status-dot' + (state ? ' ' + state : '');
     }
-
+ 
     function addMessage(role, text) {
       transcriptEmpty.style.display = 'none';
-
+ 
       const msg = document.createElement('div');
       msg.className = 'message ' + role;
-
+ 
       const label = document.createElement('div');
       label.className = 'message-label';
       label.textContent = role === 'user' ? 'You' : 'Assistant';
-
+ 
       const bubble = document.createElement('div');
       bubble.className = 'message-bubble';
       bubble.textContent = text;
-
+ 
       msg.appendChild(label);
       msg.appendChild(bubble);
       transcriptBox.appendChild(msg);
       transcriptBox.scrollTop = transcriptBox.scrollHeight;
-
+ 
       return bubble; // so caller can update text in place
     }
-
+ 
     // ── Connect / disconnect ────────────────────────────────
     talkButton.addEventListener('click', async () => {
       if (currentRoom && currentRoom.state === 'connected') {
@@ -324,19 +324,19 @@
         resetUI();
         return;
       }
-
+ 
       try {
         setStatus('Getting secure token…', 'connecting');
         talkButton.disabled = true;
-
+ 
         const response = await fetch(N8N_WEBHOOK_URL);
         if (!response.ok) throw new Error('Token server returned ' + response.status);
         const data = await response.json();
         const token = data.token;
-
+ 
         setStatus('Connecting to AI…', 'connecting');
         currentRoom = new Room();
-
+ 
         // Agent audio
         currentRoom.on(RoomEvent.TrackSubscribed, (track) => {
           if (track.kind === 'audio') {
@@ -344,20 +344,20 @@
             document.body.appendChild(audioEl);
           }
         });
-
+ 
         // Transcriptions — LiveKit streams word-by-word, so we update one bubble
         // per speaker turn rather than creating a new bubble for every chunk.
         currentRoom.on(RoomEvent.TranscriptionReceived, (segments, participant) => {
           const text = segments.map(s => s.text).join('').trim();
           if (!text) return;
-
+ 
           const identity = participant?.identity ?? 'unknown';
           const isAgent  = identity.startsWith('agent');
           const role     = isAgent ? 'agent' : 'user';
-
+ 
           // Check if any segment is final — if so, this turn is complete
           const isFinal = segments.some(s => s.final);
-
+ 
           if (!activeBubbles[identity]) {
             // Start a new bubble for this speaker turn
             const bubble = addMessage(role, text);
@@ -368,17 +368,17 @@
             activeBubbles[identity].text = text;
             transcriptBox.scrollTop = transcriptBox.scrollHeight;
           }
-
+ 
           // When the turn is final, clear the active bubble so next utterance
           // starts a fresh bubble
           if (isFinal) {
             delete activeBubbles[identity];
           }
         });
-
+ 
         await currentRoom.connect(LIVEKIT_URL, token);
         await currentRoom.localParticipant.setMicrophoneEnabled(true);
-
+ 
         // Show transcript + text input
         transcriptBox.classList.remove('hidden');
         inputRow.classList.remove('hidden');
@@ -386,51 +386,40 @@
         talkButton.classList.add('active');
         talkButton.disabled = false;
         setStatus('Connected — speak or type', 'connected');
-
+ 
       } catch (err) {
         console.error('Connection error:', err);
         setStatus('Connection failed — try again', 'error');
         talkButton.disabled = false;
       }
     });
-
+ 
     // ── Send text message ───────────────────────────────────
-    // Simulates microphone input by injecting text as a chat message via
-    // the DTMF / chat message API that LiveKit agents natively support.
+    // LiveKit agents listen on the 'lk.chat' text stream topic natively.
+    // Sending on this topic triggers the agent exactly like spoken input.
     async function sendText() {
       const text = textInput.value.trim();
       if (!text || !currentRoom) return;
-
+ 
       textInput.value = '';
       sendBtn.disabled = true;
       addMessage('user', text);
-
+ 
       try {
-        // LiveKit Agents reads incoming chat messages as user input natively
-        await currentRoom.localParticipant.sendChatMessage(text);
+        await currentRoom.localParticipant.sendText(text, { topic: 'lk.chat' });
       } catch (err) {
-        console.error('Failed to send message:', err);
-        // Fallback: publish as raw data
-        try {
-          const encoder = new TextEncoder();
-          await currentRoom.localParticipant.publishData(
-            encoder.encode(JSON.stringify({ type: 'chat_input', text })),
-            { reliable: true }
-          );
-        } catch (err2) {
-          console.error('Fallback data publish failed:', err2);
-        }
+        console.error('Failed to send text to agent:', err);
       }
-
+ 
       sendBtn.disabled = false;
       textInput.focus();
     }
-
+ 
     sendBtn.addEventListener('click', sendText);
     textInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendText(); }
     });
-
+ 
     // ── Reset ───────────────────────────────────────────────
     function resetUI() {
       currentRoom = null;
