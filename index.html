@@ -4,9 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ServiceM8 AI Assistant</title>
+
+  <!-- ServiceM8 Client SDK — only activates when inside ServiceM8 iframe -->
+  <script src="https://platform.servicem8.com/sdk/1.0/sdk.js"></script>
+  <script>
+    var smClient = null;
+    try { smClient = SMClient.init(); } catch(e) {}
+  </script>
+
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
- 
+
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       background-color: #f3f4f6;
@@ -16,7 +24,7 @@
       min-height: 100vh;
       padding: 24px 16px;
     }
- 
+
     .card {
       background: white;
       padding: 32px;
@@ -25,20 +33,20 @@
       width: 100%;
       max-width: 480px;
     }
- 
+
     h1 {
       color: #111827;
       font-size: 22px;
       margin-bottom: 6px;
     }
- 
+
     .subtitle {
       color: #6b7280;
       font-size: 14px;
       line-height: 1.5;
       margin-bottom: 24px;
     }
- 
+
     /* Status pill */
     .status-row {
       display: flex;
@@ -46,7 +54,7 @@
       gap: 8px;
       margin-bottom: 16px;
     }
- 
+
     .status-dot {
       width: 8px;
       height: 8px;
@@ -55,22 +63,22 @@
       flex-shrink: 0;
       transition: background 0.3s;
     }
- 
-    .status-dot.connected { background: #10b981; }
+
+    .status-dot.connected  { background: #10b981; }
     .status-dot.connecting { background: #f59e0b; animation: pulse 1s infinite; }
-    .status-dot.error { background: #ef4444; }
- 
+    .status-dot.error      { background: #ef4444; }
+
     @keyframes pulse {
       0%, 100% { opacity: 1; }
-      50% { opacity: 0.3; }
+      50%       { opacity: 0.3; }
     }
- 
+
     .status-text {
       font-size: 13px;
       font-weight: 500;
       color: #374151;
     }
- 
+
     /* Transcript */
     .transcript-box {
       background: #f9fafb;
@@ -85,26 +93,26 @@
       gap: 10px;
       scroll-behavior: smooth;
     }
- 
+
     .transcript-box.hidden { display: none; }
- 
+
     .transcript-empty {
       color: #9ca3af;
       font-size: 13px;
       text-align: center;
       margin: auto;
     }
- 
+
     .message {
       display: flex;
       flex-direction: column;
       max-width: 85%;
       gap: 3px;
     }
- 
-    .message.user { align-self: flex-end; align-items: flex-end; }
+
+    .message.user  { align-self: flex-end;  align-items: flex-end; }
     .message.agent { align-self: flex-start; align-items: flex-start; }
- 
+
     .message-label {
       font-size: 11px;
       font-weight: 600;
@@ -112,41 +120,36 @@
       letter-spacing: 0.05em;
       color: #9ca3af;
     }
- 
+
     .message-bubble {
       padding: 9px 13px;
       border-radius: 14px;
       font-size: 14px;
       line-height: 1.5;
     }
- 
+
     .message.user .message-bubble {
       background: #2563eb;
       color: white;
       border-bottom-right-radius: 4px;
     }
- 
+
     .message.agent .message-bubble {
       background: #f3f4f6;
       color: #111827;
       border-bottom-left-radius: 4px;
       border: 1px solid #e5e7eb;
     }
- 
-    .message.agent.thinking .message-bubble {
-      color: #9ca3af;
-      font-style: italic;
-    }
- 
+
     /* Text input row */
     .input-row {
       display: flex;
       gap: 8px;
       margin-bottom: 16px;
     }
- 
+
     .input-row.hidden { display: none; }
- 
+
     .text-input {
       flex: 1;
       border: 1px solid #e5e7eb;
@@ -157,10 +160,10 @@
       outline: none;
       transition: border-color 0.2s;
     }
- 
-    .text-input:focus { border-color: #2563eb; }
+
+    .text-input:focus       { border-color: #2563eb; }
     .text-input::placeholder { color: #9ca3af; }
- 
+
     .send-btn {
       background: #2563eb;
       color: white;
@@ -174,10 +177,10 @@
       white-space: nowrap;
       width: auto;
     }
- 
-    .send-btn:hover { background: #1d4ed8; }
+
+    .send-btn:hover    { background: #1d4ed8; }
     .send-btn:disabled { background: #9ca3af; cursor: not-allowed; }
- 
+
     /* Action buttons */
     .btn {
       width: 100%;
@@ -189,27 +192,27 @@
       cursor: pointer;
       transition: background-color 0.2s, transform 0.1s;
     }
- 
-    .btn:active { transform: scale(0.98); }
+
+    .btn:active   { transform: scale(0.98); }
     .btn:disabled { background-color: #9ca3af; cursor: not-allowed; }
- 
+
     .btn-talk { background: #2563eb; color: white; margin-bottom: 10px; }
     .btn-talk:hover:not(:disabled) { background: #1d4ed8; }
-    .btn-talk.active { background: #ef4444; }
+    .btn-talk.active       { background: #ef4444; }
     .btn-talk.active:hover { background: #dc2626; }
- 
+
     .divider {
       border: none;
       border-top: 1px solid #e5e7eb;
       margin: 24px 0 20px;
     }
- 
+
     .sub-text {
       font-size: 13px;
       color: #6b7280;
       margin-bottom: 12px;
     }
- 
+
     .connect-sm8-btn {
       display: block;
       background: #10b981;
@@ -222,27 +225,31 @@
       text-align: center;
       transition: background 0.2s, transform 0.1s;
     }
- 
-    .connect-sm8-btn:hover { background: #059669; }
+
+    .connect-sm8-btn:hover  { background: #059669; }
     .connect-sm8-btn:active { transform: scale(0.98); }
+
+    /* Auth section — hidden when session is found */
+    #authSection { margin-top: 0; }
+    #authSection.hidden { display: none; }
   </style>
 </head>
 <body>
   <div class="card">
     <h1>ServiceM8 Assistant</h1>
     <p class="subtitle">Connect to your intelligent voice dispatcher. You can speak or type.</p>
- 
+
     <!-- Status -->
     <div class="status-row">
       <div class="status-dot" id="statusDot"></div>
-      <span class="status-text" id="statusText">Ready to connect</span>
+      <span class="status-text" id="statusText">Checking session…</span>
     </div>
- 
+
     <!-- Transcript -->
     <div class="transcript-box hidden" id="transcriptBox">
       <div class="transcript-empty" id="transcriptEmpty">Conversation will appear here…</div>
     </div>
- 
+
     <!-- Text input (shown when connected) -->
     <div class="input-row hidden" id="inputRow">
       <input
@@ -254,69 +261,141 @@
       />
       <button class="send-btn" id="sendBtn">Send</button>
     </div>
- 
+
     <!-- Talk button -->
-    <button class="btn btn-talk" id="talkButton">🎙 Talk to Assistant</button>
- 
-    <hr class="divider">
-    <div class="sub-text">First time here? Link your account to the AI:</div>
-    <a href="https://go.servicem8.com/oauth/authorize?response_type=code&client_id=175357&&scope=vendor%20read_staff%20manage_staff%20manage_locations%20manage_customers%20manage_customer_contacts%20manage_jobs%20manage_job_contacts%20manage_job_materials%20manage_job_payments%20publish_sms%20publish_email&redirect_uri=https://n8n.srv1275355.hstgr.cloud/webhook/servicem8-oauth-callback&state=tenant_001"
-       class="connect-sm8-btn">
-      Connect ServiceM8
-    </a>
+    <button class="btn btn-talk" id="talkButton" disabled>🎙 Talk to Assistant</button>
+
+    <!-- Auth section — shown only when no session found -->
+    <div id="authSection" class="hidden">
+      <hr class="divider">
+      <div class="sub-text">Connect your ServiceM8 account to continue:</div>
+      <a id="connectBtn" href="#" class="connect-sm8-btn">Connect ServiceM8</a>
+    </div>
   </div>
- 
+
   <script type="module">
     import { Room, RoomEvent } from 'https://esm.sh/livekit-client@2.9.4';
- 
+
     // === CONFIGURATION ===
-    const N8N_WEBHOOK_URL = 'https://n8n.srv1275355.hstgr.cloud/webhook/generate-voice-token?user=beta-tester';
-    const LIVEKIT_URL = 'wss://test1-ntnp1zzo.livekit.cloud';
+    const N8N_WEBHOOK_URL  = 'https://n8n.srv1275355.hstgr.cloud/webhook/generate-voice-token';
+    const LIVEKIT_URL      = 'wss://test1-ntnp1zzo.livekit.cloud';
+    const OAUTH_URL        = 'https://go.servicem8.com/oauth/authorize?response_type=code&client_id=175357&scope=vendor%20read_staff%20manage_staff%20manage_locations%20manage_customers%20manage_customer_contacts%20manage_jobs%20manage_job_contacts%20manage_job_materials%20manage_job_payments%20publish_sms%20publish_email&redirect_uri=https://n8n.srv1275355.hstgr.cloud/webhook/servicem8-oauth-callback&state=tenant_001';
+    const SESSION_KEY      = 'sm8_session'; // localStorage key
     // =====================
- 
-    const talkButton   = document.getElementById('talkButton');
-    const statusDot    = document.getElementById('statusDot');
-    const statusText   = document.getElementById('statusText');
-    const transcriptBox = document.getElementById('transcriptBox');
+
+    const talkButton      = document.getElementById('talkButton');
+    const statusDot       = document.getElementById('statusDot');
+    const statusText      = document.getElementById('statusText');
+    const transcriptBox   = document.getElementById('transcriptBox');
     const transcriptEmpty = document.getElementById('transcriptEmpty');
-    const inputRow     = document.getElementById('inputRow');
-    const textInput    = document.getElementById('textInput');
-    const sendBtn      = document.getElementById('sendBtn');
- 
+    const inputRow        = document.getElementById('inputRow');
+    const textInput       = document.getElementById('textInput');
+    const sendBtn         = document.getElementById('sendBtn');
+    const authSection     = document.getElementById('authSection');
+    const connectBtn      = document.getElementById('connectBtn');
+
     let currentRoom = null;
- 
-    // Track in-progress transcription bubbles per participant
-    // key: participantIdentity, value: { bubble, finalTimer }
+    let sessionContext = null; // { tenant_id, first_name, session_token }
     const activeBubbles = {};
- 
+
     // ── UI helpers ──────────────────────────────────────────
     function setStatus(text, state = '') {
       statusText.textContent = text;
       statusDot.className = 'status-dot' + (state ? ' ' + state : '');
     }
- 
+
     function addMessage(role, text) {
       transcriptEmpty.style.display = 'none';
- 
-      const msg = document.createElement('div');
+      const msg    = document.createElement('div');
       msg.className = 'message ' + role;
- 
-      const label = document.createElement('div');
+      const label  = document.createElement('div');
       label.className = 'message-label';
       label.textContent = role === 'user' ? 'You' : 'Assistant';
- 
       const bubble = document.createElement('div');
       bubble.className = 'message-bubble';
       bubble.textContent = text;
- 
       msg.appendChild(label);
       msg.appendChild(bubble);
       transcriptBox.appendChild(msg);
       transcriptBox.scrollTop = transcriptBox.scrollHeight;
- 
-      return bubble; // so caller can update text in place
+      return bubble;
     }
- 
+
+    // ── Session resolution ──────────────────────────────────
+    // Priority order:
+    //   1. URL param ?session=TOKEN  (returned by n8n after OAuth)
+    //   2. localStorage              (returning user, standalone)
+    //   3. ServiceM8 SDK invoke      (inside ServiceM8 iframe)
+    //   4. No session → show Connect button
+
+    async function resolveSession() {
+      // 1. Check for ?session= in URL (just completed OAuth)
+      const params = new URLSearchParams(window.location.search);
+      const urlToken = params.get('session');
+      if (urlToken) {
+        try {
+          const res = await fetch(`${N8N_WEBHOOK_URL}?session=${urlToken}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.tenant_id) {
+              sessionContext = data;
+              localStorage.setItem(SESSION_KEY, JSON.stringify(data));
+              // Clean URL without reloading
+              window.history.replaceState({}, '', window.location.pathname);
+              return true;
+            }
+          }
+        } catch(e) {}
+      }
+
+      // 2. Check localStorage (returning standalone user)
+      const stored = localStorage.getItem(SESSION_KEY);
+      if (stored) {
+        try {
+          const data = JSON.parse(stored);
+          if (data.tenant_id) {
+            sessionContext = data;
+            return true;
+          }
+        } catch(e) {}
+      }
+
+      // 3. Try ServiceM8 SDK (inside iframe)
+      if (smClient) {
+        try {
+          const data = await smClient.invoke('get_session_context', {});
+          if (data && data.tenant_id) {
+            sessionContext = data;
+            return true;
+          }
+        } catch(e) {}
+      }
+
+      // 4. No session found
+      return false;
+    }
+
+    // ── Initialise on page load ─────────────────────────────
+    async function init() {
+      const hasSession = await resolveSession();
+
+      if (hasSession) {
+        const name = sessionContext.first_name || 'there';
+        setStatus(`Ready — Hi ${name}!`);
+        talkButton.disabled = false;
+        authSection.classList.add('hidden');
+      } else {
+        setStatus('Please connect your ServiceM8 account', 'error');
+        talkButton.disabled = true;
+        authSection.classList.remove('hidden');
+        // Set OAuth URL with return redirect back to this page
+        const returnUrl = encodeURIComponent(window.location.href);
+        connectBtn.href = OAUTH_URL + '&return=' + returnUrl;
+      }
+    }
+
+    init();
+
     // ── Connect / disconnect ────────────────────────────────
     talkButton.addEventListener('click', async () => {
       if (currentRoom && currentRoom.state === 'connected') {
@@ -324,19 +403,25 @@
         resetUI();
         return;
       }
- 
+
       try {
         setStatus('Getting secure token…', 'connecting');
         talkButton.disabled = true;
- 
-        const response = await fetch(N8N_WEBHOOK_URL);
+
+        // Pass session token + tenant_id to n8n so it can personalise
+        const params = new URLSearchParams({ user: 'beta-tester' });
+        if (sessionContext?.tenant_id)    params.set('tenant_id', sessionContext.tenant_id);
+        if (sessionContext?.session_token) params.set('session', sessionContext.session_token);
+        if (sessionContext?.first_name)   params.set('first_name', sessionContext.first_name);
+
+        const response = await fetch(`${N8N_WEBHOOK_URL}?${params}`);
         if (!response.ok) throw new Error('Token server returned ' + response.status);
-        const data = await response.json();
+        const data  = await response.json();
         const token = data.token;
- 
+
         setStatus('Connecting to AI…', 'connecting');
         currentRoom = new Room();
- 
+
         // Agent audio
         currentRoom.on(RoomEvent.TrackSubscribed, (track) => {
           if (track.kind === 'audio') {
@@ -344,94 +429,81 @@
             document.body.appendChild(audioEl);
           }
         });
- 
-        // Transcriptions — LiveKit streams word-by-word, so we update one bubble
-        // per speaker turn rather than creating a new bubble for every chunk.
+
+        // Transcriptions — update one bubble per speaker turn
         currentRoom.on(RoomEvent.TranscriptionReceived, (segments, participant) => {
           const text = segments.map(s => s.text).join('').trim();
           if (!text) return;
- 
+
           const identity = participant?.identity ?? 'unknown';
           const isAgent  = identity.startsWith('agent');
           const role     = isAgent ? 'agent' : 'user';
- 
-          // Check if any segment is final — if so, this turn is complete
-          const isFinal = segments.some(s => s.final);
- 
+          const isFinal  = segments.some(s => s.final);
+
           if (!activeBubbles[identity]) {
-            // Start a new bubble for this speaker turn
             const bubble = addMessage(role, text);
             activeBubbles[identity] = { bubble, text };
           } else {
-            // Update existing bubble in place (streaming words into it)
             activeBubbles[identity].bubble.textContent = text;
-            activeBubbles[identity].text = text;
             transcriptBox.scrollTop = transcriptBox.scrollHeight;
           }
- 
-          // When the turn is final, clear the active bubble so next utterance
-          // starts a fresh bubble
-          if (isFinal) {
-            delete activeBubbles[identity];
-          }
+
+          if (isFinal) delete activeBubbles[identity];
         });
- 
+
         await currentRoom.connect(LIVEKIT_URL, token);
         await currentRoom.localParticipant.setMicrophoneEnabled(true);
- 
-        // Show transcript + text input
+
         transcriptBox.classList.remove('hidden');
         inputRow.classList.remove('hidden');
         talkButton.textContent = '⏹ End Call';
         talkButton.classList.add('active');
         talkButton.disabled = false;
         setStatus('Connected — speak or type', 'connected');
- 
+
       } catch (err) {
         console.error('Connection error:', err);
         setStatus('Connection failed — try again', 'error');
         talkButton.disabled = false;
       }
     });
- 
+
     // ── Send text message ───────────────────────────────────
-    // LiveKit agents listen on the 'lk.chat' text stream topic natively.
-    // Sending on this topic triggers the agent exactly like spoken input.
     async function sendText() {
       const text = textInput.value.trim();
       if (!text || !currentRoom) return;
- 
+
       textInput.value = '';
       sendBtn.disabled = true;
       addMessage('user', text);
- 
+
       try {
         await currentRoom.localParticipant.sendText(text, { topic: 'lk.chat' });
       } catch (err) {
         console.error('Failed to send text to agent:', err);
       }
- 
+
       sendBtn.disabled = false;
       textInput.focus();
     }
- 
+
     sendBtn.addEventListener('click', sendText);
     textInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendText(); }
     });
- 
+
     // ── Reset ───────────────────────────────────────────────
     function resetUI() {
       currentRoom = null;
       transcriptBox.classList.add('hidden');
       inputRow.classList.add('hidden');
       transcriptEmpty.style.display = '';
-      // Clear old messages
       Array.from(transcriptBox.querySelectorAll('.message')).forEach(el => el.remove());
       talkButton.textContent = '🎙 Talk to Assistant';
       talkButton.classList.remove('active');
       talkButton.disabled = false;
-      setStatus('Call ended — ready to connect');
+      const name = sessionContext?.first_name || '';
+      setStatus(name ? `Ready — Hi ${name}!` : 'Call ended — ready to connect');
     }
   </script>
 </body>
