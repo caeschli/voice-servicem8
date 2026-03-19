@@ -337,7 +337,7 @@
           const res = await fetch(`${N8N_WEBHOOK_URL}?session=${urlToken}`);
           if (res.ok) {
             const data = await res.json();
-            if (data.tenant_id) {
+            if (data.first_name) {
               sessionContext = { ...data, session_token: urlToken };
               localStorage.setItem(SESSION_KEY, JSON.stringify(sessionContext));
               // Clean URL without reloading
@@ -353,7 +353,7 @@
       if (stored) {
         try {
           const data = JSON.parse(stored);
-          if (data.tenant_id) {
+          if (data.first_name) {
             sessionContext = data;
             return true;
           }
