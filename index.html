@@ -452,16 +452,6 @@
         });
 
         await currentRoom.connect(LIVEKIT_URL, token);
-
-        // Set participant metadata so agent can read first_name and access_token
-        if (data.first_name || data.access_token) {
-          await currentRoom.localParticipant.setMetadata(JSON.stringify({
-            first_name:   data.first_name   || '',
-            tenant_id:    data.tenant_id    || '',
-            access_token: data.access_token || ''
-          }));
-        }
-
         await currentRoom.localParticipant.setMicrophoneEnabled(true);
 
         transcriptBox.classList.remove('hidden');
