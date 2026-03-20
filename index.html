@@ -454,14 +454,9 @@
 
         await currentRoom.connect(LIVEKIT_URL, token);
 
-        // CHANGE: metadata contains first_name + session_token only — no access_token or tenant_id
-        await currentRoom.localParticipant.setMetadata(JSON.stringify({
-          first_name:    data.first_name    || '',
-          session_token: data.session_token || ''
-        }));
-
-        // Small delay to ensure metadata propagates before agent initialises
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Metadata is carried in the LiveKit JWT — no setMetadata call needed.
+        // The JWT already contains first_name, session_token, and access_token.
+        // Calling setMetadata here would overwrite the JWT metadata and wipe access_token.
 
         await currentRoom.localParticipant.setMicrophoneEnabled(true);
 
