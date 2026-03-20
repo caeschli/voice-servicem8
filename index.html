@@ -453,12 +453,15 @@
 
         await currentRoom.connect(LIVEKIT_URL, token);
 
-        // Set participant metadata — Agent Builder reads {{metadata.x}} from this
+        // Set participant metadata BEFORE enabling mic so agent reads it first
         await currentRoom.localParticipant.setMetadata(JSON.stringify({
           first_name:   data.first_name   || '',
           access_token: data.access_token || '',
           tenant_id:    data.tenant_id    || ''
         }));
+
+        // Small delay to ensure metadata propagates before agent initialises
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
         await currentRoom.localParticipant.setMicrophoneEnabled(true);
 
