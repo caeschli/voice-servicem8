@@ -295,7 +295,7 @@
     const connectBtn      = document.getElementById('connectBtn');
 
     let currentRoom = null;
-    let sessionContext = null; // { tenant_id, first_name, session_token }
+    let sessionContext = null; // { first_name, session_token }
     const activeBubbles = {};
 
     // ── UI helpers ──────────────────────────────────────────
@@ -337,8 +337,12 @@
           const res = await fetch(`${N8N_WEBHOOK_URL}?session=${urlToken}`);
           if (res.ok) {
             const data = await res.json();
+            // CHANGE: store only first_name + session_token — no access_token
             if (data.first_name) {
-              sessionContext = { ...data, session_token: urlToken };
+              sessionContext = {
+                first_name:    data.first_name,
+                session_token: data.session_token || urlToken
+              };
               localStorage.setItem(SESSION_KEY, JSON.stringify(sessionContext));
               // Clean URL without reloading
               window.history.replaceState({}, '', window.location.pathname);
@@ -364,7 +368,7 @@
       if (smClient) {
         try {
           const data = await smClient.invoke('get_session_context', {});
-          if (data && data.tenant_id) {
+          if (data && data.session_token) {
             sessionContext = data;
             return true;
           }
@@ -408,13 +412,10 @@
         setStatus('Getting secure token…', 'connecting');
         talkButton.disabled = true;
 
-        // Pass session token + tenant_id to n8n so it can personalise
-        const params = new URLSearchParams({ user: 'beta-tester' });
-        if (sessionContext?.tenant_id)    params.set('tenant_id', sessionContext.tenant_id);
-        if (sessionContext?.session_token) params.set('session', sessionContext.session_token);
-        if (sessionContext?.first_name)   params.set('first_name', sessionContext.first_name);
-
-        const response = await fetch(`${N8N_WEBHOOK_URL}?${params}`);
+        // CHANGE: send only session_token to n8n — no tenant_id or first_name
+        const response = await fetch(
+          `${N8N_WEBHOOK_URL}?session=${sessionContext?.session_token || ''}`
+        );
         if (!response.ok) throw new Error('Token server returned ' + response.status);
         const data  = await response.json();
         const token = data.token;
@@ -453,11 +454,10 @@
 
         await currentRoom.connect(LIVEKIT_URL, token);
 
-        // Set participant metadata BEFORE enabling mic so agent reads it first
+        // CHANGE: metadata contains first_name + session_token only — no access_token or tenant_id
         await currentRoom.localParticipant.setMetadata(JSON.stringify({
-          first_name:   data.first_name   || '',
-          access_token: data.access_token || '',
-          tenant_id:    data.tenant_id    || ''
+          first_name:    data.first_name    || '',
+          session_token: data.session_token || ''
         }));
 
         // Small delay to ensure metadata propagates before agent initialises
