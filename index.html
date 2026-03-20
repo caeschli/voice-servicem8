@@ -454,9 +454,20 @@
 
         await currentRoom.connect(LIVEKIT_URL, token);
 
-        // Metadata is carried in the LiveKit JWT — no setMetadata call needed.
-        // The JWT already contains first_name, session_token, and access_token.
-        // Calling setMetadata here would overwrite the JWT metadata and wipe access_token.
+        // Set participant metadata explicitly after connecting.
+        // The JWT carries this data but there is a race condition where the agent
+        // attempts MCP initialisation before JWT metadata propagates. Calling
+        // setMetadata explicitly ensures the agent receives access_token and
+        // first_name before it tries to connect to the MCP server.
+        await currentRoom.localParticipant.setMetadata(JSON.stringify({
+          first_name:    data.first_name    || '',
+          session_token: data.session_token || '',
+          access_token:  data.access_token  || ''
+        }));
+
+        // Wait for metadata to propagate to the agent before enabling mic.
+        // This prevents the MCP connection from firing with empty metadata.
+        await new Promise(resolve => setTimeout(resolve, 1500));
 
         await currentRoom.localParticipant.setMicrophoneEnabled(true);
 
