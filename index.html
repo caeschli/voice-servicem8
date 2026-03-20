@@ -452,6 +452,14 @@
         });
 
         await currentRoom.connect(LIVEKIT_URL, token);
+
+        // Set participant metadata — Agent Builder reads {{metadata.x}} from this
+        await currentRoom.localParticipant.setMetadata(JSON.stringify({
+          first_name:   data.first_name   || '',
+          access_token: data.access_token || '',
+          tenant_id:    data.tenant_id    || ''
+        }));
+
         await currentRoom.localParticipant.setMicrophoneEnabled(true);
 
         transcriptBox.classList.remove('hidden');
