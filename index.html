@@ -452,22 +452,27 @@
           if (isFinal) delete activeBubbles[identity];
         });
 
+        // Debug: log exactly what n8n returned
+        console.log('[sm8] n8n response keys:', Object.keys(data));
+        console.log('[sm8] session_token:', data.session_token);
+        console.log('[sm8] first_name:', data.first_name);
+        console.log('[sm8] access_token present:', !!data.access_token);
+
         await currentRoom.connect(LIVEKIT_URL, token);
 
-        // Set participant metadata explicitly after connecting.
-        // The JWT carries this data but there is a race condition where the agent
-        // attempts MCP initialisation before JWT metadata propagates. Calling
-        // setMetadata explicitly ensures the agent receives access_token and
-        // first_name before it tries to connect to the MCP server.
-        await currentRoom.localParticipant.setMetadata(JSON.stringify({
-          first_name:    data.first_name    || '',
-          session_token: data.session_token || '',
-          access_token:  data.access_token  || ''
-        }));
+        // Fallback: if n8n didn't return session_token, use the one from sessionContext
+        const metaSessionToken = data.session_token || sessionContext?.session_token || '';
+        const participantMeta = JSON.stringify({
+          first_name:    data.first_name   || '',
+          session_token: metaSessionToken,
+          access_token:  data.access_token || ''
+        });
+        console.log('[sm8] setting metadata, session_token present:', !!metaSessionToken);
 
-        // Wait for metadata to propagate to the agent before enabling mic.
-        // This prevents the MCP connection from firing with empty metadata.
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        await currentRoom.localParticipant.setMetadata(participantMeta);
+
+        // Increased delay to ensure metadata propagates before agent initialises MCP
+        await new Promise(resolve => setTimeout(resolve, 2500));
 
         await currentRoom.localParticipant.setMicrophoneEnabled(true);
 
