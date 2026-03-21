@@ -471,8 +471,21 @@
 
         await currentRoom.localParticipant.setMetadata(participantMeta);
 
-        // Increased delay to ensure metadata propagates before agent initialises MCP
-        await new Promise(resolve => setTimeout(resolve, 2500));
+        // Wait for metadata to propagate to LiveKit before dispatching agent
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // Dispatch agent AFTER metadata is set — agent will read metadata on init
+        setStatus('Starting assistant…', 'connecting');
+        const dispatchRes = await fetch('https://n8n.srv1275355.hstgr.cloud/webhook/dispatch-agent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ room_name: data.room_name })
+        });
+        if (!dispatchRes.ok) {
+          console.warn('[sm8] dispatch failed:', dispatchRes.status);
+        } else {
+          console.log('[sm8] agent dispatched to room:', data.room_name);
+        }
 
         await currentRoom.localParticipant.setMicrophoneEnabled(true);
 
