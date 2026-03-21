@@ -487,6 +487,33 @@
           console.log('[sm8] agent dispatched to room:', data.room_name);
         }
 
+        // Wait for agent to spin up and join the room before enabling mic
+        setStatus('Waiting for assistant…', 'connecting');
+        await new Promise(resolve => {
+          const checkAgent = () => {
+            const participants = Array.from(currentRoom.remoteParticipants.values());
+            const agentJoined = participants.some(p => p.identity.startsWith('agent'));
+            if (agentJoined) {
+              console.log('[sm8] agent joined, enabling mic');
+              resolve();
+            } else {
+              console.log('[sm8] waiting for agent…', participants.length, 'remote participants');
+              setTimeout(checkAgent, 500);
+            }
+          };
+          // Also listen for participant connected event
+          currentRoom.on('participantConnected', (p) => {
+            if (p.identity.startsWith('agent')) {
+              console.log('[sm8] agent connected event:', p.identity);
+              resolve();
+            }
+          });
+          checkAgent();
+        });
+
+        // Small buffer after agent joins before enabling mic
+        await new Promise(resolve => setTimeout(resolve, 500));
+
         await currentRoom.localParticipant.setMicrophoneEnabled(true);
 
         transcriptBox.classList.remove('hidden');
