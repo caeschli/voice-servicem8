@@ -276,12 +276,57 @@
   <script type="module">
     import { Room, RoomEvent } from 'https://esm.sh/livekit-client@2.9.4';
 
-    // === CONFIGURATION ===
-    const N8N_WEBHOOK_URL  = 'https://n8n.srv1275355.hstgr.cloud/webhook/generate-voice-token';
-    const LIVEKIT_URL      = 'wss://test1-ntnp1zzo.livekit.cloud';
-    const OAUTH_URL        = 'https://go.servicem8.com/oauth/authorize?response_type=code&client_id=175357&scope=vendor%20read_staff%20manage_staff%20manage_locations%20manage_customers%20manage_customer_contacts%20manage_jobs%20manage_job_contacts%20manage_job_materials%20manage_job_payments%20publish_sms%20publish_email&redirect_uri=https://n8n.srv1275355.hstgr.cloud/webhook/servicem8-oauth-callback&state=tenant_001';
-    const SESSION_KEY      = 'sm8_session'; // localStorage key
-    // =====================
+    // ── CONFIGURATION ─────────────────────────────────────────────────────────
+    const N8N_WEBHOOK_URL = 'https://n8n.srv1275355.hstgr.cloud/webhook/generate-voice-token';
+    const LIVEKIT_URL     = 'wss://test1-ntnp1zzo.livekit.cloud';
+    const SESSION_KEY     = 'sm8_session';
+
+    // OAuth configuration
+    const OAUTH_CLIENT_ID    = '175357';
+    const OAUTH_REDIRECT_URI = 'https://n8n.srv1275355.hstgr.cloud/webhook/servicem8-oauth-callback';
+    const OAUTH_STATE        = 'tenant_001';
+
+    // ServiceM8 OAuth scopes — add or remove scopes here as needed.
+    // Full scope reference: https://developer.servicem8.com/docs/authentication
+    const OAUTH_SCOPES = [
+      // Account
+      'vendor',
+      // Staff
+      'read_staff',
+      'manage_staff',
+      // Locations
+      'manage_locations',
+      // Customers
+      'manage_customers',
+      'manage_customer_contacts',
+      // Jobs — note: create_jobs is a separate scope from manage_jobs
+      'manage_jobs',
+      'create_jobs',
+      'manage_job_contacts',
+      'manage_job_materials',
+      'manage_job_payments',
+      'read_job_payments',
+      // Schedule / allocations
+      'read_schedule',
+      'manage_schedule',
+      // Notes
+      'publish_job_notes',
+      'read_job_notes',
+      // Messaging
+      'publish_sms',
+      'publish_email',
+    ];
+
+    // Build the OAuth URL from the constants above
+    const OAUTH_URL = [
+      'https://go.servicem8.com/oauth/authorize',
+      '?response_type=code',
+      `&client_id=${OAUTH_CLIENT_ID}`,
+      `&scope=${encodeURIComponent(OAUTH_SCOPES.join(' '))}`,
+      `&redirect_uri=${encodeURIComponent(OAUTH_REDIRECT_URI)}`,
+      `&state=${OAUTH_STATE}`,
+    ].join('');
+    // ─────────────────────────────────────────────────────────────────────────
 
     const talkButton      = document.getElementById('talkButton');
     const statusDot       = document.getElementById('statusDot');
@@ -337,14 +382,12 @@
           const res = await fetch(`${N8N_WEBHOOK_URL}?session=${urlToken}`);
           if (res.ok) {
             const data = await res.json();
-            // CHANGE: store only first_name + session_token — no access_token
             if (data.first_name) {
               sessionContext = {
                 first_name:    data.first_name,
                 session_token: data.session_token || urlToken
               };
               localStorage.setItem(SESSION_KEY, JSON.stringify(sessionContext));
-              // Clean URL without reloading
               window.history.replaceState({}, '', window.location.pathname);
               return true;
             }
@@ -392,7 +435,6 @@
         setStatus('Please connect your ServiceM8 account', 'error');
         talkButton.disabled = true;
         authSection.classList.remove('hidden');
-        // Set OAuth URL with return redirect back to this page
         const returnUrl = encodeURIComponent(window.location.href);
         connectBtn.href = OAUTH_URL + '&return=' + returnUrl;
       }
@@ -412,7 +454,6 @@
         setStatus('Getting secure token…', 'connecting');
         talkButton.disabled = true;
 
-        // CHANGE: send only session_token to n8n — no tenant_id or first_name
         const response = await fetch(
           `${N8N_WEBHOOK_URL}?session=${sessionContext?.session_token || ''}`
         );
@@ -452,7 +493,6 @@
           if (isFinal) delete activeBubbles[identity];
         });
 
-        // Debug: log exactly what n8n returned
         console.log('[sm8] n8n response keys:', Object.keys(data));
         console.log('[sm8] session_token:', data.session_token);
         console.log('[sm8] first_name:', data.first_name);
@@ -460,7 +500,6 @@
 
         await currentRoom.connect(LIVEKIT_URL, token);
 
-        // Fallback: if n8n didn't return session_token, use the one from sessionContext
         const metaSessionToken = data.session_token || sessionContext?.session_token || '';
         const participantMeta = JSON.stringify({
           first_name:    data.first_name   || '',
@@ -471,10 +510,8 @@
 
         await currentRoom.localParticipant.setMetadata(participantMeta);
 
-        // Wait for metadata to propagate to LiveKit before dispatching agent
         await new Promise(resolve => setTimeout(resolve, 1000));
 
-        // Dispatch agent AFTER metadata is set — agent will read metadata on init
         setStatus('Starting assistant…', 'connecting');
         const dispatchRes = await fetch('https://n8n.srv1275355.hstgr.cloud/webhook/dispatch-agent', {
           method: 'POST',
@@ -487,7 +524,6 @@
           console.log('[sm8] agent dispatched to room:', data.room_name);
         }
 
-        // Wait for agent to spin up and join the room before enabling mic
         setStatus('Waiting for assistant…', 'connecting');
         await new Promise(resolve => {
           const checkAgent = () => {
@@ -501,7 +537,6 @@
               setTimeout(checkAgent, 500);
             }
           };
-          // Also listen for participant connected event
           currentRoom.on('participantConnected', (p) => {
             if (p.identity.startsWith('agent')) {
               console.log('[sm8] agent connected event:', p.identity);
@@ -511,7 +546,6 @@
           checkAgent();
         });
 
-        // Small buffer after agent joins before enabling mic
         await new Promise(resolve => setTimeout(resolve, 500));
 
         await currentRoom.localParticipant.setMicrophoneEnabled(true);
