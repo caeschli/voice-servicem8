@@ -232,6 +232,29 @@
     /* Auth section — hidden when session is found */
     #authSection { margin-top: 0; }
     #authSection.hidden { display: none; }
+
+    /* Minutes balance row */
+    .balance-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 12px;
+      font-size: 13px;
+      color: #065f46;
+      font-weight: 500;
+    }
+
+    .balance-row.low {
+      background: #fff7ed;
+      border-color: #fed7aa;
+      color: #9a3412;
+    }
+
+    .balance-row.hidden { display: none; }
   </style>
 </head>
 <body>
@@ -260,6 +283,11 @@
         autocomplete="off"
       />
       <button class="send-btn" id="sendBtn">Send</button>
+    </div>
+
+    <!-- Minutes balance (shown when call starts) -->
+    <div class="balance-row hidden" id="balanceRow">
+      <span id="balanceText"></span>
     </div>
 
     <!-- Talk button -->
@@ -341,6 +369,8 @@
     const sendBtn         = document.getElementById('sendBtn');
     const authSection     = document.getElementById('authSection');
     const connectBtn      = document.getElementById('connectBtn');
+    const balanceRow      = document.getElementById('balanceRow');
+    const balanceText     = document.getElementById('balanceText');
 
     let currentRoom = null;
     let sessionContext = null; // { first_name, session_token }
@@ -350,6 +380,15 @@
     function setStatus(text, state = '') {
       statusText.textContent = text;
       statusDot.className = 'status-dot' + (state ? ' ' + state : '');
+    }
+
+    function showBalance(minutes, isTrial) {
+      if (minutes === undefined || minutes === null) return;
+      balanceText.textContent = isTrial
+        ? `🎁 Trial — ${minutes} minutes remaining`
+        : `⏱ ${minutes} minutes remaining`;
+      balanceRow.classList.remove('hidden');
+      balanceRow.classList.toggle('low', minutes <= 10);
     }
 
     function addMessage(role, text) {
@@ -464,20 +503,23 @@
         const data  = await response.json();
         const token = data.token;
 
+        // Show minutes balance
+        showBalance(data.minutes_balance, data.is_trial);
+
         setStatus('Connecting to AI…', 'connecting');
         currentRoom = new Room();
 
         // Agent audio
-currentRoom.on(RoomEvent.TrackSubscribed, (track) => {
-  if (track.kind === 'audio') {
-    const audioEl = track.attach();
-    audioEl.autoplay = true;
-    audioEl.muted = false;
-    document.body.appendChild(audioEl);
-    audioEl.play().catch(e => console.warn('[sm8] autoplay blocked:', e));
-    console.log('[sm8] agent audio track attached and playing');
-  }
-});
+        currentRoom.on(RoomEvent.TrackSubscribed, (track) => {
+          if (track.kind === 'audio') {
+            const audioEl = track.attach();
+            audioEl.autoplay = true;
+            audioEl.muted = false;
+            document.body.appendChild(audioEl);
+            audioEl.play().catch(e => console.warn('[sm8] autoplay blocked:', e));
+            console.log('[sm8] agent audio track attached and playing');
+          }
+        });
 
         // Transcriptions — update one bubble per speaker turn
         currentRoom.on(RoomEvent.TranscriptionReceived, (segments, participant) => {
@@ -504,6 +546,7 @@ currentRoom.on(RoomEvent.TrackSubscribed, (track) => {
         console.log('[sm8] session_token:', data.session_token);
         console.log('[sm8] first_name:', data.first_name);
         console.log('[sm8] access_token present:', !!data.access_token);
+        console.log('[sm8] minutes_balance:', data.minutes_balance, '| is_trial:', data.is_trial);
 
         await currentRoom.connect(LIVEKIT_URL, token);
 
@@ -600,6 +643,7 @@ currentRoom.on(RoomEvent.TrackSubscribed, (track) => {
       currentRoom = null;
       transcriptBox.classList.add('hidden');
       inputRow.classList.add('hidden');
+      balanceRow.classList.add('hidden');
       transcriptEmpty.style.display = '';
       Array.from(transcriptBox.querySelectorAll('.message')).forEach(el => el.remove());
       talkButton.textContent = '🎙 Talk to Assistant';
