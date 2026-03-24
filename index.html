@@ -371,8 +371,6 @@
       balanceRow.classList.toggle('low', mins <= 10);
     }
 
-    // Silently fetch latest balance from n8n and update the pill.
-    // Reuses the token endpoint — only reads balance fields from the response.
     async function refreshBalance() {
       if (!sessionContext?.session_token) return;
       try {
@@ -406,7 +404,6 @@
 
     // ── Session resolution ──────────────────────────────────
     async function resolveSession() {
-      // 1. URL param — fresh OAuth redirect
       const params = new URLSearchParams(window.location.search);
       const urlToken = params.get('session');
       if (urlToken) {
@@ -421,7 +418,6 @@
               };
               localStorage.setItem(SESSION_KEY, JSON.stringify(sessionContext));
               window.history.replaceState({}, '', window.location.pathname);
-              // Balance is already in this response
               showBalance(data.minutes_balance, data.is_trial);
               return true;
             }
@@ -429,7 +425,6 @@
         } catch(e) {}
       }
 
-      // 2. localStorage — returning user
       const stored = localStorage.getItem(SESSION_KEY);
       if (stored) {
         try {
@@ -441,7 +436,6 @@
         } catch(e) {}
       }
 
-      // 3. ServiceM8 SDK — inside iframe
       if (smClient) {
         try {
           const data = await smClient.invoke('get_session_context', {});
@@ -464,7 +458,6 @@
         setStatus(`Ready — Hi ${name}!`);
         talkButton.disabled = false;
         authSection.classList.add('hidden');
-        // Fetch balance on load if not already shown from OAuth redirect path
         if (balanceRow.classList.contains('hidden')) {
           await refreshBalance();
         }
@@ -483,7 +476,7 @@
     talkButton.addEventListener('click', async () => {
       if (currentRoom && currentRoom.state === 'connected') {
         await currentRoom.disconnect();
-        return; // resetUI() fires via RoomEvent.Disconnected
+        return;
       }
 
       try {
@@ -497,7 +490,6 @@
         const data  = await response.json();
         const token = data.token;
 
-        // Update balance with fresh value before the call starts
         showBalance(data.minutes_balance, data.is_trial);
 
         setStatus('Connecting to AI…', 'connecting');
@@ -515,7 +507,7 @@
           }
         });
 
-        // Transcriptions
+        // ── Transcriptions ──────────────────────────────────
         currentRoom.on(RoomEvent.TranscriptionReceived, (segments, participant) => {
           const text = segments.map(s => s.text).join('').trim();
           if (!text) return;
@@ -523,28 +515,25 @@
           const identity = participant?.identity ?? 'unknown';
           const isAgent  = identity.startsWith('agent');
           const role     = isAgent ? 'agent' : 'user';
-          const isFinal  = segments.some(s => s.final);
+          const isFinal  = segments.every(s => s.final);
 
-          if (!activeBubbles[identity]) {
+          if (!activeBubbles[identity] || activeBubbles[identity].final) {
             const bubble = addMessage(role, text);
-            activeBubbles[identity] = { bubble, text };
+            activeBubbles[identity] = { bubble, final: false };
           } else {
             activeBubbles[identity].bubble.textContent = text;
             transcriptBox.scrollTop = transcriptBox.scrollHeight;
           }
 
-          if (isFinal) delete activeBubbles[identity];
+          if (isFinal) activeBubbles[identity].final = true;
         });
 
-        // On disconnect: reset UI then refresh balance after 3s
-        // (gives the usage tracker time to deduct minutes first)
+        // Reset UI and refresh balance after call ends
         currentRoom.on(RoomEvent.Disconnected, async () => {
           resetUI();
           await new Promise(resolve => setTimeout(resolve, 3000));
           await refreshBalance();
         });
-
-        console.log('[sm8] minutes_balance:', data.minutes_balance, '| is_trial:', data.is_trial);
 
         await currentRoom.connect(LIVEKIT_URL, token);
 
@@ -552,7 +541,8 @@
         await currentRoom.localParticipant.setMetadata(JSON.stringify({
           first_name:    data.first_name   || '',
           session_token: metaSessionToken,
-          access_token:  data.access_token || ''
+          access_token:  data.access_token || '',
+          timezone:      Intl.DateTimeFormat().resolvedOptions().timeZone
         }));
 
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -635,7 +625,6 @@
       talkButton.disabled = false;
       const name = sessionContext?.first_name || '';
       setStatus(name ? `Ready — Hi ${name}!` : 'Call ended — ready to connect');
-      // Balance row stays visible — refreshBalance() will update it after 3s
     }
   </script>
 </body>
