@@ -79,6 +79,30 @@
       color: #374151;
     }
 
+    /* Minutes balance row */
+    .balance-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 16px;
+      font-size: 13px;
+      color: #065f46;
+      font-weight: 500;
+      transition: background 0.3s, border-color 0.3s;
+    }
+
+    .balance-row.low {
+      background: #fff7ed;
+      border-color: #fed7aa;
+      color: #9a3412;
+    }
+
+    .balance-row.hidden { display: none; }
+
     /* Transcript */
     .transcript-box {
       background: #f9fafb;
@@ -161,7 +185,7 @@
       transition: border-color 0.2s;
     }
 
-    .text-input:focus       { border-color: #2563eb; }
+    .text-input:focus        { border-color: #2563eb; }
     .text-input::placeholder { color: #9ca3af; }
 
     .send-btn {
@@ -232,29 +256,6 @@
     /* Auth section — hidden when session is found */
     #authSection { margin-top: 0; }
     #authSection.hidden { display: none; }
-
-    /* Minutes balance row */
-    .balance-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      background: #f0fdf4;
-      border: 1px solid #bbf7d0;
-      border-radius: 8px;
-      padding: 10px 14px;
-      margin-bottom: 12px;
-      font-size: 13px;
-      color: #065f46;
-      font-weight: 500;
-    }
-
-    .balance-row.low {
-      background: #fff7ed;
-      border-color: #fed7aa;
-      color: #9a3412;
-    }
-
-    .balance-row.hidden { display: none; }
   </style>
 </head>
 <body>
@@ -266,6 +267,11 @@
     <div class="status-row">
       <div class="status-dot" id="statusDot"></div>
       <span class="status-text" id="statusText">Checking session…</span>
+    </div>
+
+    <!-- Minutes balance — shown whenever a session exists -->
+    <div class="balance-row hidden" id="balanceRow">
+      <span id="balanceText"></span>
     </div>
 
     <!-- Transcript -->
@@ -283,11 +289,6 @@
         autocomplete="off"
       />
       <button class="send-btn" id="sendBtn">Send</button>
-    </div>
-
-    <!-- Minutes balance (shown when call starts) -->
-    <div class="balance-row hidden" id="balanceRow">
-      <span id="balanceText"></span>
     </div>
 
     <!-- Talk button -->
@@ -309,46 +310,24 @@
     const LIVEKIT_URL     = 'wss://test1-ntnp1zzo.livekit.cloud';
     const SESSION_KEY     = 'sm8_session';
 
-    // OAuth configuration
     const OAUTH_CLIENT_ID    = '175357';
     const OAUTH_REDIRECT_URI = 'https://n8n.srv1275355.hstgr.cloud/webhook/servicem8-oauth-callback';
     const OAUTH_STATE        = 'tenant_001';
 
-    // ServiceM8 OAuth scopes — add or remove scopes here as needed.
-    // Full scope reference: https://developer.servicem8.com/docs/authentication
     const OAUTH_SCOPES = [
-      // Account
       'vendor',
-      // Staff
-      'read_staff',
-      'manage_staff',
-      // Locations
+      'read_staff', 'manage_staff',
       'manage_locations',
-      // Customers
-      'manage_customers',
-      'manage_customer_contacts',
-      // Jobs — note: create_jobs is a separate scope from manage_jobs
-      'manage_jobs',
-      'create_jobs',
+      'manage_customers', 'manage_customer_contacts',
+      'manage_jobs', 'create_jobs',
       'manage_job_contacts',
-      'manage_job_materials',
-      'manage_job_payments',
-      'read_job_payments',
-      // Schedule / allocations
-      'read_schedule',
-      'manage_schedule',
-      // Notes
-      'publish_job_notes',
-      'read_job_notes',
-      // materials
-      'read_inventory',
-      'manage_inventory',
-      // Messaging
-      'publish_sms',
-      'publish_email',
+      'manage_job_materials', 'manage_job_payments', 'read_job_payments',
+      'read_schedule', 'manage_schedule',
+      'publish_job_notes', 'read_job_notes',
+      'read_inventory', 'manage_inventory',
+      'publish_sms', 'publish_email',
     ];
 
-    // Build the OAuth URL from the constants above
     const OAUTH_URL = [
       'https://go.servicem8.com/oauth/authorize',
       '?response_type=code',
@@ -373,7 +352,7 @@
     const balanceText     = document.getElementById('balanceText');
 
     let currentRoom = null;
-    let sessionContext = null; // { first_name, session_token }
+    let sessionContext = null;
     const activeBubbles = {};
 
     // ── UI helpers ──────────────────────────────────────────
@@ -384,11 +363,28 @@
 
     function showBalance(minutes, isTrial) {
       if (minutes === undefined || minutes === null) return;
+      const mins = Number(minutes);
       balanceText.textContent = isTrial
-        ? `🎁 Trial — ${minutes} minutes remaining`
-        : `⏱ ${minutes} minutes remaining`;
+        ? `🎁 Trial — ${mins} minutes remaining`
+        : `⏱ ${mins} minutes remaining`;
       balanceRow.classList.remove('hidden');
-      balanceRow.classList.toggle('low', minutes <= 10);
+      balanceRow.classList.toggle('low', mins <= 10);
+    }
+
+    // Silently fetch latest balance from n8n and update the pill.
+    // Reuses the token endpoint — only reads balance fields from the response.
+    async function refreshBalance() {
+      if (!sessionContext?.session_token) return;
+      try {
+        const res = await fetch(
+          `${N8N_WEBHOOK_URL}?session=${sessionContext.session_token}`
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        showBalance(data.minutes_balance, data.is_trial);
+      } catch (e) {
+        console.warn('[sm8] balance refresh failed:', e);
+      }
     }
 
     function addMessage(role, text) {
@@ -409,14 +405,8 @@
     }
 
     // ── Session resolution ──────────────────────────────────
-    // Priority order:
-    //   1. URL param ?session=TOKEN  (returned by n8n after OAuth)
-    //   2. localStorage              (returning user, standalone)
-    //   3. ServiceM8 SDK invoke      (inside ServiceM8 iframe)
-    //   4. No session → show Connect button
-
     async function resolveSession() {
-      // 1. Check for ?session= in URL (just completed OAuth)
+      // 1. URL param — fresh OAuth redirect
       const params = new URLSearchParams(window.location.search);
       const urlToken = params.get('session');
       if (urlToken) {
@@ -431,13 +421,15 @@
               };
               localStorage.setItem(SESSION_KEY, JSON.stringify(sessionContext));
               window.history.replaceState({}, '', window.location.pathname);
+              // Balance is already in this response
+              showBalance(data.minutes_balance, data.is_trial);
               return true;
             }
           }
         } catch(e) {}
       }
 
-      // 2. Check localStorage (returning standalone user)
+      // 2. localStorage — returning user
       const stored = localStorage.getItem(SESSION_KEY);
       if (stored) {
         try {
@@ -449,7 +441,7 @@
         } catch(e) {}
       }
 
-      // 3. Try ServiceM8 SDK (inside iframe)
+      // 3. ServiceM8 SDK — inside iframe
       if (smClient) {
         try {
           const data = await smClient.invoke('get_session_context', {});
@@ -460,7 +452,6 @@
         } catch(e) {}
       }
 
-      // 4. No session found
       return false;
     }
 
@@ -473,6 +464,10 @@
         setStatus(`Ready — Hi ${name}!`);
         talkButton.disabled = false;
         authSection.classList.add('hidden');
+        // Fetch balance on load if not already shown from OAuth redirect path
+        if (balanceRow.classList.contains('hidden')) {
+          await refreshBalance();
+        }
       } else {
         setStatus('Please connect your ServiceM8 account', 'error');
         talkButton.disabled = true;
@@ -488,8 +483,7 @@
     talkButton.addEventListener('click', async () => {
       if (currentRoom && currentRoom.state === 'connected') {
         await currentRoom.disconnect();
-        resetUI();
-        return;
+        return; // resetUI() fires via RoomEvent.Disconnected
       }
 
       try {
@@ -503,7 +497,7 @@
         const data  = await response.json();
         const token = data.token;
 
-        // Show minutes balance
+        // Update balance with fresh value before the call starts
         showBalance(data.minutes_balance, data.is_trial);
 
         setStatus('Connecting to AI…', 'connecting');
@@ -521,7 +515,7 @@
           }
         });
 
-        // Transcriptions — update one bubble per speaker turn
+        // Transcriptions
         currentRoom.on(RoomEvent.TranscriptionReceived, (segments, participant) => {
           const text = segments.map(s => s.text).join('').trim();
           if (!text) return;
@@ -542,23 +536,24 @@
           if (isFinal) delete activeBubbles[identity];
         });
 
-        console.log('[sm8] n8n response keys:', Object.keys(data));
-        console.log('[sm8] session_token:', data.session_token);
-        console.log('[sm8] first_name:', data.first_name);
-        console.log('[sm8] access_token present:', !!data.access_token);
+        // On disconnect: reset UI then refresh balance after 3s
+        // (gives the usage tracker time to deduct minutes first)
+        currentRoom.on(RoomEvent.Disconnected, async () => {
+          resetUI();
+          await new Promise(resolve => setTimeout(resolve, 3000));
+          await refreshBalance();
+        });
+
         console.log('[sm8] minutes_balance:', data.minutes_balance, '| is_trial:', data.is_trial);
 
         await currentRoom.connect(LIVEKIT_URL, token);
 
         const metaSessionToken = data.session_token || sessionContext?.session_token || '';
-        const participantMeta = JSON.stringify({
+        await currentRoom.localParticipant.setMetadata(JSON.stringify({
           first_name:    data.first_name   || '',
           session_token: metaSessionToken,
           access_token:  data.access_token || ''
-        });
-        console.log('[sm8] setting metadata, session_token present:', !!metaSessionToken);
-
-        await currentRoom.localParticipant.setMetadata(participantMeta);
+        }));
 
         await new Promise(resolve => setTimeout(resolve, 1000));
 
@@ -578,26 +573,16 @@
         await new Promise(resolve => {
           const checkAgent = () => {
             const participants = Array.from(currentRoom.remoteParticipants.values());
-            const agentJoined = participants.some(p => p.identity.startsWith('agent'));
-            if (agentJoined) {
-              console.log('[sm8] agent joined, enabling mic');
-              resolve();
-            } else {
-              console.log('[sm8] waiting for agent…', participants.length, 'remote participants');
-              setTimeout(checkAgent, 500);
-            }
+            if (participants.some(p => p.identity.startsWith('agent'))) { resolve(); return; }
+            setTimeout(checkAgent, 500);
           };
           currentRoom.on('participantConnected', (p) => {
-            if (p.identity.startsWith('agent')) {
-              console.log('[sm8] agent connected event:', p.identity);
-              resolve();
-            }
+            if (p.identity.startsWith('agent')) resolve();
           });
           checkAgent();
         });
 
         await new Promise(resolve => setTimeout(resolve, 500));
-
         await currentRoom.localParticipant.setMicrophoneEnabled(true);
 
         transcriptBox.classList.remove('hidden');
@@ -643,7 +628,6 @@
       currentRoom = null;
       transcriptBox.classList.add('hidden');
       inputRow.classList.add('hidden');
-      balanceRow.classList.add('hidden');
       transcriptEmpty.style.display = '';
       Array.from(transcriptBox.querySelectorAll('.message')).forEach(el => el.remove());
       talkButton.textContent = '🎙 Talk to Assistant';
@@ -651,6 +635,7 @@
       talkButton.disabled = false;
       const name = sessionContext?.first_name || '';
       setStatus(name ? `Ready — Hi ${name}!` : 'Call ended — ready to connect');
+      // Balance row stays visible — refreshBalance() will update it after 3s
     }
   </script>
 </body>
